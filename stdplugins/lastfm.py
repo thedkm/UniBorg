@@ -1,3 +1,9 @@
+"""
+LastFM Module for Userbot
+usage:- .current <userName> if no userName is provided in args. env LAST_FM_USERNAME will be used.
+By:- TG:- @Zero_cool7870 Git:- jaskaranSM
+
+"""
 from pylast import LastFMNetwork
 import asyncio
 from uniborg.util import admin_cmd
