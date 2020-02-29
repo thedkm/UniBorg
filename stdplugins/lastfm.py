@@ -30,6 +30,7 @@ async def lastfm(event):
         try:
             track_cover = current_track.get_cover_image()
         except IndexError:
+            track_cover = None
             pass
         msg = "**{}** is currently listening to:\n [🎧]({}) `{}`".format(user,track_cover,current_track)
     else:
