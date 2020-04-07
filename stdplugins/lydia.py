@@ -14,7 +14,7 @@ Credits: @Zero_cool7870 (For Writing This Module)
 
 
 """
-import coffeehouse as cf
+from coffeehouse.lydia import LydiaAI
 from coffeehouse.exception import CoffeeHouseError
 from uniborg.util import admin_cmd
 import asyncio
@@ -27,10 +27,25 @@ logging.basicConfig(level=logging.INFO)
 if Config.MONGO_URI and Config.LYDIA_API is not None:
 	api_key = Config.LYDIA_API
 
-	# Initialise client
-	api_client = cf.API(api_key)
+    # Initialise client
+	lydia = LydiaAI(api_key)
 	db = mongo_client['test']
-	lydia = db.lydia
+	lydiadb = db.lydia
+
+
+lydia_chats = []
+def init_lydia():
+	cursors = lydiadb.find({})
+	for c in cursors:
+		lydia_chats.append(c)
+init_lydia()
+
+def deleteUser(chat_id,user_id):
+	for index,user in enumerate(lydia_chats):
+		if user['chat_id'] == chat_id and user['user_id'] == user_id:
+			del lydia_chats[index]
+			return True
+	return False
 
 
 @borg.on(admin_cmd(pattern="cf", allow_sudo=True))
@@ -47,7 +62,7 @@ async def lydia_enable(event):
 	user_id = reply_msg.from_id
 	chat_id = event.chat_id
 	await event.edit("Processing...")
-	cursors = lydia.find({})
+	cursors = lydiadb.find({})
 	try:
 		for c in cursors:
 			if c['user_id'] == user_id and c['chat_id'] == chat_id:
@@ -55,10 +70,11 @@ async def lydia_enable(event):
 				return		
 	except:
 		pass						
-	session = api_client.create_session()
+	session = lydia.create_session()
 	ses = {'id':session.id,'expires':session.expires}
 	logging.info(ses)
-	lydia.insert_one({'user_id':user_id,'chat_id':chat_id,'session':ses})
+	lydia_chats.append({'user_id':user_id,'chat_id':chat_id,'session':ses})
+	lydiadb.insert_one({'user_id':user_id,'chat_id':chat_id,'session':ses})
 	await event.edit("Lydia AI Turned On for User: "+str(user_id))
 
 @borg.on(admin_cmd(pattern="delcf", allow_sudo=True))
@@ -75,10 +91,11 @@ async def lydia_disable(event):
 	user_id = reply_msg.from_id
 	chat_id = event.chat_id
 	await event.edit("Processing...")
-	cursors = lydia.find({})
+	deleteUser(chat_id,user_id)
+	cursors = lydiadb.find({})
 	for c in cursors:
 		if c['user_id'] == user_id and c['chat_id'] == chat_id:
-			lydia.delete_one(c)
+			lydiadb.delete_one(c)
 	await event.edit("Lydia AI Turned OFF for User: "+str(user_id))			
 
 @borg.on(admin_cmd(pattern="listcf", allow_sudo=True))
@@ -90,7 +107,7 @@ async def lydia_list(event):
 		return		
 	await event.edit("Processing...")
 	msg = "**Auto-Chat:**"
-	cur = lydia.find({})
+	cur = lydiadb.find({})
 	for c in cur:
 		user_id = str(c['user_id'])
 		msg += "\n__User:__ [{}](tg://user?id={})".format(user_id,user_id)
@@ -104,8 +121,7 @@ async def Lydia_bot_update(event):
 	if Config.MONGO_URI and Config.LYDIA_API is None:
 		return		
 	if event.media == None:	
-		cursor = lydia.find({})
-		for c in cursor:
+		for c in lydia_chats:
 			if c['user_id'] == event.from_id and c['chat_id'] == event.chat_id:
 				query = event.text
 				ses = c['session']
@@ -113,30 +129,30 @@ async def Lydia_bot_update(event):
                 # Check if the session is expired
                 # If this method throws an exception at this point, then there's an issue with the API, Auth or Server.
 				if ses['expires'] < time():
-					session = api_client.create_session()
+					session = lydia.create_session()
 					ses = {'id': session.id, 'expires': session.expires}
 					logging.info(ses)
-					lydia.update_one(c,{'$set':{'user_id':event.from_id,'chat_id':event.chat_id,'session':ses}})			
-    
+					lydiadb.update_one(c,{'$set':{'user_id':event.from_id,'chat_id':event.chat_id,'session':ses}})			
+					lydia_chats[chat_id] = ses
                 # Try to think a thought.            
 				try:
 					async with borg.action(event.chat_id, "typing"):
 						await asyncio.sleep(1)
-						output = api_client.think_thought(ses['id'],query)
+						output = lydia.think_thought(ses['id'],query)
 						await event.reply(output)
 				except CoffeeHouseError as e:
                     # CoffeeHouse related issue, session issue most likely.
 					logging.error(str(e))
 
                     # Create a new session
-					session = api_client.create_session()
+					session = lydia.create_session()
 					ses = {'id': session.id, 'expires': session.expires}
 					logging.info(ses)
-					lydia.update_one(c,{'$set':{'user_id':event.from_id,'chat_id':event.chat_id,'session':ses}})			
-	
+					lydiadb.update_one(c,{'$set':{'user_id':event.from_id,'chat_id':event.chat_id,'session':ses}})			
+					lydia_chats[chat_id] = ses
                     # Reply again, if this method fails then there's a other issue.
 					async with borg.action(event.chat_id, "typing"):
 						await asyncio.sleep(1)
-						output = api_client.think_thought(ses['id'],query)
+						output = lydia.think_thought(ses['id'],query)
 						await event.reply(output)
 
