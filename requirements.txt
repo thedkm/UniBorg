@@ -5,7 +5,7 @@ aria2p
 ChatterBot
 spcli
 instaloader
-coffeehouse
+coffeehouse>=2.2.2
 anime-downloader
 pylast
 -r ./requirements-stdborg.txt
