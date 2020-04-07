@@ -47,6 +47,11 @@ def deleteUser(chat_id,user_id):
 			return True
 	return False
 
+def getIndexByUser(user_id,chat_id):
+	for index,user in enumerate(lydia_chats):
+		if user['chat_id'] == chat_id and user['user_id'] == user_id:
+			return index
+	return False
 
 @borg.on(admin_cmd(pattern="cf", allow_sudo=True))
 async def lydia_enable(event):
@@ -133,7 +138,8 @@ async def Lydia_bot_update(event):
 					ses = {'id': session.id, 'expires': session.expires}
 					logging.info(ses)
 					lydiadb.update_one(c,{'$set':{'user_id':event.from_id,'chat_id':event.chat_id,'session':ses}})			
-					lydia_chats[chat_id] = ses
+					index = getIndexByUser(c['user_id'],c['chat_id'])
+					lydia_chats[index]['session'] = ses
                 # Try to think a thought.            
 				try:
 					async with borg.action(event.chat_id, "typing"):
@@ -149,7 +155,8 @@ async def Lydia_bot_update(event):
 					ses = {'id': session.id, 'expires': session.expires}
 					logging.info(ses)
 					lydiadb.update_one(c,{'$set':{'user_id':event.from_id,'chat_id':event.chat_id,'session':ses}})			
-					lydia_chats[chat_id] = ses
+					index = getIndexByUser(c['user_id'],c['chat_id'])
+					lydia_chats[index]['session'] = ses
                     # Reply again, if this method fails then there's a other issue.
 					async with borg.action(event.chat_id, "typing"):
 						await asyncio.sleep(1)
