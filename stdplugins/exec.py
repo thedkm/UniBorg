@@ -40,6 +40,7 @@ async def _(event):
                 reply_to=reply_to_id
             )
             await event.delete()
+            return
     if stderr.decode():
         await event.edit(f"{OUTPUT}`{stderr.decode()}`")
         return
