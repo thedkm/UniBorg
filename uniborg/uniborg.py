@@ -9,10 +9,9 @@ from pathlib import Path
 from telethon import TelegramClient
 import telethon.utils
 import telethon.events
-
+from pymongo import MongoClient
 from .storage import Storage
 from . import hacks
-from pymongo import MongoClient
 import os
 
 
@@ -31,7 +30,6 @@ class Uniborg(TelegramClient):
         self._plugin_path = plugin_path
         self.config = api_config
         self.mongo = MongoClient(os.environ.get("MONGO_URI",None))
-
         kwargs = {
             "api_id": 6,
             "api_hash": "eb06d4abfb49dc3eeb1aeb98ae0f581e",

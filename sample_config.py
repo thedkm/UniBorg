@@ -101,6 +101,9 @@ class Config(object):
     VERY_STREAM_KEY = os.environ.get("VERY_STREAM_KEY", None)
     TEMP_DIR = os.environ.get("TEMP_DIR", None)
     CHANNEL_ID = int(os.environ.get("CHANNEL_ID", 1234))
+    #LASTFM
+    LAST_FM_USERNAME = os.environ.get("LAST_FM_USERNAME",None)
+    LAST_FM_API_KEY = os.environ.get("LAST_FM_API_KEY",None)
     #MongoDB
     MONGO_URI = os.environ.get("MONGO_URI", None)
     #Lydia API

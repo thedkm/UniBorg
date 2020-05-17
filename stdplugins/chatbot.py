@@ -31,8 +31,6 @@ logic_adapters = [
         'chatterbot.logic.SpecificResponseAdapter'
     ]
 MONGO_URI= Config.MONGO_URI
-if MONGO_URI is None:
-	logging.error("ADD MONGO_URI in Env Vars Plox.")
 try:	
 	bot= ChatBot('Bot', #Prepare Bot
 		 	storage_adapter='chatterbot.storage.MongoDatabaseAdapter',

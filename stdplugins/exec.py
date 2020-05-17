@@ -29,7 +29,7 @@ async def _(event):
     OUTPUT = f"**QUERY:**\n__Command:__\n`{cmd}` \n__PID:__\n`{process.pid}`\n\n**Output:**\n"
     stdout, stderr = await process.communicate()
     if len(stdout) > Config.MAX_MESSAGE_SIZE_LIMIT:
-        with io.BytesIO(str.encode(stdout)) as out_file:
+        with io.BytesIO(stdout) as out_file:
             out_file.name = "exec.text"
             await borg.send_file(
                 event.chat_id,
@@ -40,6 +40,7 @@ async def _(event):
                 reply_to=reply_to_id
             )
             await event.delete()
+        return
     if stderr.decode():
         await event.edit(f"{OUTPUT}`{stderr.decode()}`")
         return
