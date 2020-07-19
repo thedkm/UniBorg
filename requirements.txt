@@ -1,4 +1,5 @@
 telethon
+heroku3
 dnspython
 lxml
 selenium
