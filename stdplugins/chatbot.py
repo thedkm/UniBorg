@@ -81,7 +81,7 @@ async def chat_bot(event):
 	msg = str(text.message)
 	reply = bot.get_response(msg)
 	print(reply)
-	await event.edit("**Jas's Bot:\n"+str(reply)+"**")
+	await event.edit("**Tyler's Bot:\n"+str(reply)+"**")
 
 @borg.on(admin_cmd(pattern="autochat", allow_sudo=True))
 async def chat_bot(event):
@@ -188,7 +188,7 @@ async def chat_bot_update(event):
 				msg = str(event.text)
 				reply = bot.get_response(msg)
 				logging.info(reply)
-				await event.reply("**Jas's Bot:\n"+str(reply)+"**")
+				await event.reply("**Tyler's Bot:\n"+str(reply)+"**")
 	if not event.text:
 		return
 	for cht in learn_chats:		
