@@ -14,7 +14,7 @@ heroku_api = "https://api.heroku.com"
 HEROKU_APP_NAME = Config.HEROKU_APP_NAME
 HEROKU_API_KEY = Config.HEROKU_API_KEY
 
-@borg.on(admin_cmd(pattern=r"(set|get|del) var ?(.*)", allow_sudo=True))
+@borg.on(admin_cmd(r"(set|get|del) var ?(.*)", allow_sudo=True))
 async def variable(var):
     if HEROKU_APP_NAME is not None:
         app = Heroku.app(HEROKU_APP_NAME)
