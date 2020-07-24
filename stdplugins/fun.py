@@ -137,7 +137,7 @@ async def _(event):
     await event.edit(reply_text)
 			  
 			  
-@borg.on(admin_cmd(pattern="abusee ?(.*)"))
+@borg.on(admin_cmd("abusee ?(.*)"))
 async def _(event):
     if event.fwd_from:
          return
