@@ -8,7 +8,7 @@ Use .zombies clean to remove deleted accounts from the groups and channels.
 \nPorted by ©[NIKITA](t.me/kirito6969) and ©[EYEPATCH](t.me/NeoMatrix90)"""
 
 from telethon import events
-from uniborg.utils import admin_cmd
+from uniborg.util import admin_cmd
 #
 from asyncio import sleep
 from os import remove
