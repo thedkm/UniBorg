@@ -82,7 +82,7 @@ async def variable(var):
             return await var.reply(f"**{variable}**  `is not exists`")
 
         
-@borg.on(admin_cmd(pattern="usage ?(.*)", allow_sudo=True))
+@borg.on(admin_cmd("usage ?(.*)", allow_sudo=True))
 async def _(event):
     await event.edit("`Processing...`")
     useragent = ('Mozilla/5.0 (Linux; Android 10; SM-G975F) '
