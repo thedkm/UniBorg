@@ -241,6 +241,7 @@ def getsubitems(obj, itemkey, islast, maxlinelength, indent):
     return items, is_inline
 
 
+
 def basictype2str(obj):
     if isinstance (obj, str):
         strobj = "\"" + str(obj) + "\""
@@ -249,6 +250,62 @@ def basictype2str(obj):
     else:
         strobj = str(obj)
     return strobj
+
+from telethon import events
+import asyncio
+from userbot import bot
+from traceback import format_exc
+from time import gmtime, strftime
+import math
+import subprocess
+import sys
+import traceback
+import datetime
+def register(**args):
+    """ Register a new event. """
+    args["func"] = lambda e: e.via_bot_id is None
+    
+    stack = inspect.stack()
+    previous_stack_frame = stack[1]
+    file_test = Path(previous_stack_frame.filename)
+    file_test = file_test.stem.replace(".py", "")
+    pattern = args.get('pattern', None)
+    disable_edited = args.get('disable_edited', True)
+
+    if pattern is not None and not pattern.startswith('(?i)'):
+        args['pattern'] = '(?i)' + pattern
+
+    if "disable_edited" in args:
+        del args['disable_edited']
+    
+    reg = re.compile('(.*)')
+    if not pattern == None:
+        try:
+            cmd = re.search(reg, pattern)
+            try:
+                cmd = cmd.group(1).replace("$", "").replace("\\", "").replace("^", "")
+            except:
+                pass
+
+            try:
+                CMD_LIST[file_test].append(cmd)
+            except:
+                CMD_LIST.update({file_test: [cmd]})
+        except:
+            pass
+
+    def decorator(func):
+        if not disable_edited:
+            bot.add_event_handler(func, events.MessageEdited(**args))
+        bot.add_event_handler(func, events.NewMessage(**args))
+        try:
+            LOAD_PLUG[file_test].append(func)
+        except Exception as e:
+            LOAD_PLUG.update({file_test: [func]})
+
+        return func
+
+    return decorator
 
 
 def indentitems(items, indent, level):
