@@ -8,8 +8,8 @@ import asyncio
 import os
 import requests
 import math
-from uniborg.utils import register
-from uniborg.utils import admin_cmd
+from uniborg.util import register
+from uniborg.util import admin_cmd
 
 
 Heroku = heroku3.from_key(Var.HEROKU_API_KEY)
