@@ -253,7 +253,7 @@ def basictype2str(obj):
 
 from telethon import events
 import asyncio
-from userbot import bot
+#from userbot import bot
 from traceback import format_exc
 from time import gmtime, strftime
 import math
