@@ -241,7 +241,6 @@ def getsubitems(obj, itemkey, islast, maxlinelength, indent):
     return items, is_inline
 
 
-
 def basictype2str(obj):
     if isinstance (obj, str):
         strobj = "\"" + str(obj) + "\""
@@ -250,9 +249,6 @@ def basictype2str(obj):
     else:
         strobj = str(obj)
     return strobj
-
-r
-
 
 def indentitems(items, indent, level):
     """Recursively traverses the list of json lines, adds indentation based on the current depth"""
