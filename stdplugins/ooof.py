@@ -42,10 +42,8 @@ async def _(event):
             "o",
             "oo",    
             "ooo",
-            "ooooo",
-            "oooooo",
-            "ooooooo",
-            "oooooooo",
+            "ooooof"
+      
            
         ]
 
