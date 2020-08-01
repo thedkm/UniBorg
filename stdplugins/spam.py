@@ -28,7 +28,7 @@ async def spammer(e):
                 "#SPAM \n\n"
                 "Spam was executed successfully"
                 )
- @borg.on(admin_cmd(pattern="spamstkr ?(.*)"))
+@borg.on(admin_cmd(pattern="spamstkr ?(.*)"))
 async def _(event):
     if event.fwd_from:
         return
