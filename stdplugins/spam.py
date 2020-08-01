@@ -5,7 +5,7 @@
 #
 
 from asyncio import wait
-
+from uniborg.util import admin_cmd
 from telethon import events
 
 
@@ -28,3 +28,19 @@ async def spammer(e):
                 "#SPAM \n\n"
                 "Spam was executed successfully"
                 )
+ @borg.on(admin_cmd(pattern="spamstkr ?(.*)"))
+async def _(event):
+    if event.fwd_from:
+        return
+    input_str = int(event.pattern_match.group(1))
+    replied = event.reply_to_msg_id
+    if not replied:
+    	await even.edit("Reply to a sticker you idiot.")
+    	return
+    reply = await event.get_reply_message()
+    stickerid = reply.file.id
+    await event.delete()
+    for i in range(input_str):
+        await event.client.send_file(event.chat_id, stickerid)
+
+            
