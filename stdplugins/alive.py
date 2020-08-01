@@ -13,7 +13,7 @@ async def _(event):
     if event.fwd_from:
         return
     if Alive:
-       mentions = f"{Alive}.\n\n Uniborg+ \n\nTelethon version: {version.__version__}.\nPython: {python_version()}.\nUser: {DEFAULTUSER}."
+       mentions = f"{Alive}'s Uniborg+ in running \nTelethon version: {version.__version__}.\nPython: {python_version()}.\nUser: {DEFAULTUSER}."
     else:
        mentions = f" Uniborg+ is running.\n\nTelethon version: {version.__version__}.\nPython: {python_version()}.\nUser: {DEFAULTUSER}."
     chat = await event.get_input_chat()
