@@ -24,6 +24,7 @@ telegraph
 urbandict
 wikipedia
 youtube-dl
+youtube_search
 git+https://github.com/ahupp/python-magic
 google-api-python-client
 oauth2client
