@@ -31,3 +31,11 @@ oauth2client
 httplib2==0.15.0
 fonttools
 pySmartDL
+patoolib
+subprocess
+ast
+sys
+argparse
+ssl
+codecs
+socket
