@@ -56,3 +56,4 @@ spamwatch
 covidcli==0.1.7
 psutil
 geopy
+unrar
