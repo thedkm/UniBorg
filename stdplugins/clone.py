@@ -68,7 +68,7 @@ async def _(event):
     await event.delete()
     await borg.send_message(
       event.chat_id,
-      "**Bro @r4v4n4 said me that my dad fcuked your mom and you were the result.**",
+      "**new identity acquired**",
       reply_to=reply_message
       )
 
