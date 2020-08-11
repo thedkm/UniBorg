@@ -68,7 +68,7 @@ async def torrent_download(event):
 	gid = download.gid
 	await progress_status(gid=gid,event=event,previous=None)
 
-@borg.on(events.NewMessage(pattern=r"\.url", outgoing=True))
+"""@borg.on(events.NewMessage(pattern=r"\.url", outgoing=True))
 async def magnet_download(event):
 	if event.fwd_from:
 		return
@@ -86,7 +86,7 @@ async def magnet_download(event):
 	file = aria2.get_download(gid)
 	if file.followed_by_ids:
 		new_gid = await check_metadata(gid)
-		await progress_status(gid=new_gid,event=event,previous=None)
+		await progress_status(gid=new_gid,event=event,previous=None)"""
 
 @borg.on(events.NewMessage(pattern=r"\.ariaRM", outgoing=True))
 async def remove_all(event):
