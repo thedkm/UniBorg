@@ -11,4 +11,5 @@ coffeehouse>=2.2.2
 anime-downloader
 pylast
 chatterbot-corpus
+gaggle
 -r ./requirements-stdborg.txt
