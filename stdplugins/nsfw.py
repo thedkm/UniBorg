@@ -9,6 +9,7 @@ Search images from Danbooru.
 """
 
 import requests
+import os
 import urllib
 from asyncio import sleep
 from uniborg.util import admin_cmd
