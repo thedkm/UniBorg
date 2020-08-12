@@ -184,8 +184,8 @@ async def promote(eventPromote):
             )
 
 
-@borg.on(admin_cmd(pattern=f"{borg.me.id}idemote(?: |$)(.*)", allow_sudo=True))
-@borg.on(events.NewMessage(outgoing=True, pattern="^.idemote(?: |$)(.*)"))
+@borg.on(admin_cmd(pattern=f"{borg.me.id}demote(?: |$)(.*)", allow_sudo=True))
+@borg.on(events.NewMessage(outgoing=True, pattern="^.demote(?: |$)(.*)"))
 async def demote(eventDemote):
     if not eventDemote.text[0].isalpha(
     ) and eventDemote.text[0] not in ("/", "#", "@", "!"):
