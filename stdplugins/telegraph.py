@@ -1,9 +1,9 @@
 """@telegraph Utilities
 Available Commands:
-.telegraph media as reply to a media
-.telegraph text as reply to a large text"""
-from telethon import events
+.tg m as reply to a media
+.tg t as reply to a large text"""
 import os
+from PIL import Image
 from datetime import datetime
 from telegraph import Telegraph, upload_file, exceptions
 from uniborg.util import admin_cmd
@@ -13,9 +13,12 @@ r = telegraph.create_account(short_name=Config.TELEGRAPH_SHORT_NAME)
 auth_url = r["auth_url"]
 
 
-@borg.on(admin_cmd("telegraph (media|text) ?(.*)"))
+@borg.on(admin_cmd(pattern="tg (m|t) ?(.*)"))
 async def _(event):
     if event.fwd_from:
+        return
+    if Config.PRIVATE_GROUP_BOT_API_ID is None:
+        await event.edit("Please set the required environment variable `PRIVATE_GROUP_BOT_API_ID` for this plugin to work")
         return
     if not os.path.isdir(Config.TMP_DOWNLOAD_DIRECTORY):
         os.makedirs(Config.TMP_DOWNLOAD_DIRECTORY)
@@ -28,7 +31,7 @@ async def _(event):
         start = datetime.now()
         r_message = await event.get_reply_message()
         input_str = event.pattern_match.group(1)
-        if input_str == "media":
+        if input_str == "m":
             downloaded_file_name = await borg.download_media(
                 r_message,
                 Config.TMP_DOWNLOAD_DIRECTORY
@@ -36,6 +39,8 @@ async def _(event):
             end = datetime.now()
             ms = (end - start).seconds
             await event.edit("Downloaded to {} in {} seconds.".format(downloaded_file_name, ms))
+            if downloaded_file_name.endswith((".webp")):
+                resize_image(downloaded_file_name)
             try:
                 start = datetime.now()
                 media_urls = upload_file(downloaded_file_name)
@@ -46,10 +51,10 @@ async def _(event):
                 end = datetime.now()
                 ms_two = (end - start).seconds
                 os.remove(downloaded_file_name)
-                await event.edit("Uploaded to https://telegra.ph/{} in {} seconds.".format(media_urls[0], (ms + ms_two)), link_preview=True)
-        elif input_str == "text":
+                await event.edit("Uploaded to https://telegra.ph{} in {} seconds.".format(media_urls[0], (ms + ms_two)), link_preview=True)
+        elif input_str == "t":
             user_object = await borg.get_entity(r_message.from_id)
-            title_of_page = user_object.first_name # + " " + user_object.last_name
+            title_of_page = user_object.first_name  # + " " + user_object.last_name
             # apparently, all Users do not have last_name field
             if optional_title:
                 title_of_page = optional_title
@@ -61,7 +66,7 @@ async def _(event):
                     r_message,
                     Config.TMP_DOWNLOAD_DIRECTORY
                 )
-                m_list = None
+                m_list = ''
                 with open(downloaded_file_name, "rb") as fd:
                     m_list = fd.readlines()
                 for m in m_list:
@@ -77,3 +82,8 @@ async def _(event):
             await event.edit("Pasted to https://telegra.ph/{} in {} seconds.".format(response["path"], ms), link_preview=True)
     else:
         await event.edit("Reply to a message to get a permanent telegra.ph link. (Inspired by @ControllerBot)")
+
+
+def resize_image(image):
+    im = Image.open(image)
+    im.save(image, "PNG")
