@@ -17,10 +17,13 @@ from googleapiclient.http import MediaFileUpload
 from google.auth.transport.requests import Request
 from telethon import events
 from urllib.parse import parse_qs
-from uniborg.util import humanbytes, admin_cmd, progress
+from uniborg.util import humanbytes, admin_cmd, progress, time_formatter
 from datetime import datetime
+from telethon.errors.rpcerrorlist import MessageNotModifiedError
 import time
 import urllib.parse as urlparse
+import math
+import aiofiles
 import pickle
 import mimetypes
 import os
@@ -30,6 +33,7 @@ import re
 db = mongo_client["test"]
 G_DRIVE_TOKEN_FILE = "token.pickle"
 driveDB = db.GDRIVE 
+SLEEP_TIME = 5
 
 def getAccessTokenDB():
     cursor = driveDB.find()
@@ -53,6 +57,36 @@ def InitGDrive():
             f.write(token)
 InitGDrive()
 
+def getProgressBarString(percentage):
+    progress_bar_str = "[{0}{1}]\n".format(
+            ''.join(["▰" for i in range(math.floor(percentage / 5))]),
+            ''.join(["▱" for i in range(20 - math.floor(percentage / 5))]))
+    return progress_bar_str
+
+async def progressSpinner(drive_obj,banner,event):
+    while not drive_obj.isComplete():
+        text = f"__{banner}__\n"     
+        try:
+            text += getProgressString(drive_obj)
+        except Exception as e:
+            text += str(e)
+        try:
+            if text != drive_obj.previous_msg_text:
+                await event.edit(text)
+                drive_obj.previous_msg_text = text
+        except MessageNotModifiedError:
+            pass
+        await asyncio.sleep(SLEEP_TIME)
+
+def getProgressString(drive_obj):
+    progressStr = f"**Transferred:** `{humanbytes(drive_obj.transferredBytes())}`\n"
+    progressStr += f"`{getProgressBarString(drive_obj.percent())}`"
+    progressStr += f"**Percent:** `{drive_obj.percent()}%\n`"
+    progressStr += f"**Speed:** `{humanbytes(drive_obj.speed())}ps`\n"
+    progressStr += f"**ETA:** `{time_formatter(drive_obj.eta())}`\n"
+    progressStr += f"**Total:** `{humanbytes(drive_obj.totalBytes())}`\n"
+    return progressStr
+
 class GDriveHelper:
     def __init__(self):
         self.service = None
@@ -63,6 +97,74 @@ class GDriveHelper:
         self.__G_DRIVE_BASE_DOWNLOAD_URL = "https://drive.google.com/uc?id={}&export=download"
         self.__G_DRIVE_DIR_BASE_DOWNLOAD_URL = "https://drive.google.com/drive/folders/{}"
         self.chunksize = 50*1024*1024
+        self.is_complete = False
+        self.previous_msg_text = ""
+        self.transferred_bytes = 0
+        self._eta = 0
+        self.total_bytes = 0
+        self.transfer_speed = 0
+        self.start_time = time.time()
+
+    def speed(self):
+        return self.transfer_speed
+
+    def percent(self):
+        try:
+            return round(self.transferredBytes() * 100 / self.totalBytes(),2)
+        except ZeroDivisionError:
+            return 0.0
+
+    def eta(self):
+        return self._eta
+
+    def totalBytes(self):
+        return self.total_bytes
+
+    def transferredBytes(self):
+        return self.transferred_bytes
+
+    def isComplete(self):
+        return self.is_complete
+
+    def getSizeLocal(self,path):
+        if os.path.isfile(path):
+            return os.path.getsize(path)
+        total_size = 0
+        for root, dirs, files in os.walk(path):
+            for f in files:
+                abs_path = os.path.join(root, f)
+                total_size += os.path.getsize(abs_path)
+        return total_size
+
+    async def getSizeDriveFolder(self,folder_id):
+        files = await self.getFilesByParentId(folder_id)
+        for file in files:
+            if file.get("mimeType") == self.G_DRIVE_DIR_MIME_TYPE:
+                await self.getSizeDriveFolder(file.get('id'))
+            else:
+                self.size += int(file.get('size'))
+
+    async def getSizeDrive(self,file_id):
+        self.size = 0
+        meta = await self.getMetadata(file_id)
+        if meta.get("mimeType") == self.G_DRIVE_DIR_MIME_TYPE:
+            await self.getSizeDriveFolder(meta.get('id'))
+            return self.size
+        else:
+            return int(meta.get("size"))
+
+    def onTransferComplete(self):
+        print("onTransferComplete...")
+        self.is_complete = True
+
+    def onProgressUpdate(self,chunkSize):
+        self.transferred_bytes += chunkSize
+        diff = time.time() - self.start_time
+        self.transfer_speed = self.transferredBytes() / diff
+        try:
+            self._eta = round((self.totalBytes() - self.transferredBytes()) / self.speed()) * 1000
+        except ZeroDivisionError:
+            self._eta = 0
 
     async def getCreds(self,event=None):
         credentials = None
@@ -109,7 +211,6 @@ class GDriveHelper:
         creds = await self.getCreds(event)
         self.service = Client(session=self.session,credentials=creds).drive("v3")
 
-
     def getFileOps(self,file_path):
         mime_type = mimetypes.guess_type(file_path)[0]
         mime_type = mime_type if mime_type else "text/plain"
@@ -124,6 +225,14 @@ class GDriveHelper:
             'withLink': True
         }
         return await self.service.permissions.create(supportsTeamDrives=True, fileId=file_id, body=permissions)
+
+    async def fileSender(self,file_name=None):
+        async with aiofiles.open(file_name, 'rb') as f:
+            chunk = await f.read(self.chunksize)
+            while chunk:
+                self.onProgressUpdate(len(chunk))
+                yield chunk
+                chunk = await f.read(self.chunksize)
 
     async def uploadFile(self,file_path,parent_id=None):
         file_name, mime_type = self.getFileOps(file_path)
@@ -144,9 +253,8 @@ class GDriveHelper:
         
         uploadLocation = response.headers.get("location")
         file_id = ""
-        with open(file_path,"rb") as obj:
-            async with self.session.put(uploadLocation,data=obj) as resp:
-                resJson = await resp.json()
+        async with self.session.put(uploadLocation,data=self.fileSender(file_path)) as resp:
+            resJson = await resp.json()
         file_id = resJson.get("id")
         if not Config.IS_TEAM_DRIVE:
             await self.setPermissions(file_id) 
@@ -179,6 +287,21 @@ class GDriveHelper:
             else:
                 await self.uploadFile(absPath,folder_id)
 
+    async def upload(self,file_path,event):
+        await event.edit("Calculating Size please wait!")
+        size = self.getSizeLocal(file_path)
+        self.total_bytes = size
+        link = ""
+        if os.path.isdir(file_path):
+            dir_id = await self.createDirectory(self.getFileName(file_path),Config.GDRIVE_FOLDER_ID)
+            await self.uploadFolder(file_path,dir_id)
+            link = self.formatLink(dir_id)
+        else:
+            file_id = await self.uploadFile(file_path,Config.GDRIVE_FOLDER_ID)
+            link = self.formatLink(file_id,folder=False)
+        self.onTransferComplete()
+        return link
+
     def formatLink(self,id,folder=True):
         if folder:
             return self.__G_DRIVE_DIR_BASE_DOWNLOAD_URL.format(id)
@@ -203,6 +326,19 @@ class GDriveHelper:
                 await self.downloadFolder(file.get("id"),newPath)
             else:
                 await self.downloadFile(file.get("id"),newPath)
+
+    async def download(self,file_id,event):
+        await event.edit("Calculating Size please wait!")
+        size = await self.getSizeDrive(file_id)
+        self.total_bytes = size
+        meta = await self.getMetadata(file_id)
+        if meta.get('mimeType') == self.G_DRIVE_DIR_MIME_TYPE:
+            os.makedirs(meta.get('name'),exist_ok=True)
+            await self.downloadFolder(meta.get('id'),meta.get('name'))
+        else:
+            await self.downloadFile(meta.get('id'),meta.get('name'))
+        self.onTransferComplete()
+        return meta.get('name')
 
     async def getAccessToken(self):
         return (await self.getCreds()).token
@@ -231,6 +367,7 @@ class GDriveHelper:
             async for chunk, _ in response.content.iter_chunks():
                 file_writer.write(chunk)
                 file_writer.flush()
+                self.onProgressUpdate(len(chunk))
 
     async def getFilesByParentId(self,folder_id,name=None,limit=None):
         files = []
@@ -286,13 +423,11 @@ async def gdriveupload(event):
     drive = GDriveHelper()
     await drive.authorize(event)
     file_id = drive.parseLink(input_link)
-    meta = await drive.getMetadata(file_id)
-    if meta.get("mimeType") == drive.G_DRIVE_DIR_MIME_TYPE:
-        os.makedirs(meta.get("name"),exist_ok=True)
-        await drive.downloadFolder(meta.get("id"),meta.get("name"))
-    else:
-        await drive.downloadFile(meta.get('id'),meta.get('name'))
-    await mone.edit(f"Downloaded: `{meta.get('name')}`")
+    task = drive.download(file_id,mone)
+    task2 = progressSpinner(drive,"DOWNLOAD PROGRESS",mone)
+    result = await asyncio.gather(*[task,task2])
+    name = result[0]
+    await mone.edit(f"Downloaded: `{name}`")
 
 @borg.on(admin_cmd(pattern="gdrive ?(.*)", allow_sudo=True))
 async def gdriveupload(event):
@@ -340,13 +475,10 @@ async def gdriveupload(event):
         link = ""
         drive = GDriveHelper()
         await drive.authorize(event)
-        if os.path.isdir(required_file_name):
-            dir_id = await drive.createDirectory(drive.getFileName(required_file_name),Config.GDRIVE_FOLDER_ID)
-            await drive.uploadFolder(required_file_name,dir_id)
-            link = drive.formatLink(dir_id)
-        else:
-            file_id = await drive.uploadFile(required_file_name,Config.GDRIVE_FOLDER_ID)
-            link = drive.formatLink(file_id,folder=False)
+        task = drive.upload(required_file_name,mone)
+        task2 = progressSpinner(drive,"UPLOAD PROGRESS",mone)
+        result = await asyncio.gather(*[task,task2])
+        link = result[0]
         await mone.edit(f"Uploaded To GDrive: [{required_file_name}]({link})")
     else:
         await mone.edit("File Not found in local server. Give me a file path :((")
