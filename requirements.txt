@@ -1,4 +1,4 @@
-git+https://github.com/LonamiWebs/Telethon
+
 pip==20.2
 dnspython
 lxml
