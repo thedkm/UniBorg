@@ -2,40 +2,44 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 import asyncio
+import os
+import time
 import importlib.util
 import logging
 from pathlib import Path
-
+from pymongo import MongoClient
 from telethon import TelegramClient
 import telethon.utils
 import telethon.events
-from pymongo import MongoClient
-from .storage import Storage
+
 from . import hacks
-import os
 
 
 class Uniborg(TelegramClient):
     def __init__(
-            self, session, *, plugin_path="plugins", storage=None,
-            bot_token=None, api_config=None, **kwargs):
-        # TODO: handle non-string session
-        #
-        # storage should be a callable accepting plugin name -> Storage object.
-        # This means that using the Storage type as a storage would work too.
+        self,
+        session,
+        *,
+        n_plugin_path="plugins",
+        db_plugin_path="plugins",
+        bot_token=None,
+        api_config=None,
+        **kwargs
+    ):
         self._name = "LoggedIn"
-        self.storage = storage or (lambda n: Storage(Path("data") / n))
-        self._logger = logging.getLogger("UniBorg")
+        self._logger = logging.getLogger("PepeBot")
         self._plugins = {}
-        self._plugin_path = plugin_path
+        self.n_plugin_path = n_plugin_path
+        self.db_plugin_path = db_plugin_path
         self.config = api_config
-        self.mongo = MongoClient(os.environ.get("MONGO_URI",None))
+        self.mongo = MongoClient(os.environ.get("MONGO_URI", None))
+
         kwargs = {
             "api_id": 6,
             "api_hash": "eb06d4abfb49dc3eeb1aeb98ae0f581e",
-            "device_model": "GNU/Linux nonUI",
-            "app_version": "@UniBorg 9.0.9",
-            "lang_code": "ml",
+            "device_model": "Kali Linux nonUI",
+            "app_version": "@PepeBot 7.0",
+            "lang_code": "en",
             **kwargs
         }
 
@@ -63,8 +67,12 @@ class Uniborg(TelegramClient):
         inline_bot_plugin = Path(__file__).parent / "_inline_bot.py"
         self.load_plugin_from_file(inline_bot_plugin)
 
-        for a_plugin_path in Path().glob(f"{self._plugin_path}/*.py"):
+        for a_plugin_path in Path().glob(f"{self.n_plugin_path}/*.py"):
             self.load_plugin_from_file(a_plugin_path)
+
+        if api_config.DB_URI is not None:
+            for a_plugin_path in Path().glob(f"{self.db_plugin_path}/*.py"):
+                self.load_plugin_from_file(a_plugin_path)
 
         LOAD = self.config.LOAD
         NO_LOAD = self.config.NO_LOAD
@@ -78,18 +86,19 @@ class Uniborg(TelegramClient):
                     if plugin_name in self._plugins:
                         self.remove_plugin(plugin_name)
 
-
     async def _async_init(self, **kwargs):
         await self.start(**kwargs)
 
         self.me = await self.get_me()
         self.uid = telethon.utils.get_peer_id(self.me)
 
-        self._logger.info(f"Logged in as {self.uid}")
-
+        self._logger.info(
+            f"Logged in as {self.uid} "
+            f"Try {self.config.COMMAND_HAND_LER}info in any chat..!"
+        )
 
     def load_plugin(self, shortname):
-        self.load_plugin_from_file(f"{self._plugin_path}/{shortname}.py")
+        self.load_plugin_from_file(f"{self.n_plugin_path}/{shortname}.py")
 
     def load_plugin_from_file(self, path):
         path = Path(path)
@@ -98,16 +107,15 @@ class Uniborg(TelegramClient):
 
         spec = importlib.util.spec_from_file_location(name, path)
         mod = importlib.util.module_from_spec(spec)
+        mod.mongo_client = self.mongo
 
         mod.borg = self
-        mod.mongo_client = self.mongo
         mod.logger = logging.getLogger(shortname)
-        mod.storage = self.storage(f"{self._name}/{shortname}")
         # declare Config and tgbot to be accessible by all modules
         mod.Config = self.config
         if self.config.TG_BOT_USER_NAME_BF_HER is not None:
             mod.tgbot = self.tgbot
-
+        mod.BOT_START_TIME = time.time()
 
         spec.loader.exec_module(mod)
         self._plugins[shortname] = mod
