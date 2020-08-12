@@ -412,7 +412,7 @@ async def drivesch(event):
 
 
 @borg.on(admin_cmd(pattern="drivedl ?(.*)", allow_sudo=True))
-async def gdriveupload(event):
+async def gdrivedownload(event):
     if event.fwd_from:
         return
     input_link = event.pattern_match.group(1)
@@ -428,6 +428,36 @@ async def gdriveupload(event):
     result = await asyncio.gather(*[task,task2])
     name = result[0]
     await mone.edit(f"Downloaded: `{name}`")
+
+@borg.on(admin_cmd(pattern="drivemeta ?(.*)", allow_sudo=True))
+async def gdrivemeta(event):
+    if event.fwd_from:
+        return
+    input_link = event.pattern_match.group(1)
+    if not input_link:
+        await event.edit("Provide Link kek.")
+        return
+    mone = await event.reply("Processing...")
+    drive = GDriveHelper()
+    await drive.authorize(event)
+    try:
+        file_id = drive.parseLink(input_link)
+    except Exception as e:
+            await mone.edit(f"Bad Link: {e}")
+    msg = ""
+    meta = await drive.getMetadata(file_id)
+    await mone.edit("Calculating Size please wait!")
+    size = await drive.getSizeDrive(file_id)
+    msg += f"**Name:** `{meta.get('name')}`\n"
+    msg += f"**Size:** `{humanbytes(size)}`\n"
+    msg += f"**MimeType:** `{meta.get('mimeType')}`\n"
+    msg += f"**Trashed:** `{meta.get('trashed')}`\n"
+    msg += f"**Description:** `{meta.get('description')}`\n"
+    msg += f"**CreatedTime:** `{meta.get('createdTime')}`\n"
+    msg += f"**ModifiedTime:** `{meta.get('modifiedTime')}`"
+    await mone.edit(msg)
+
+
 
 @borg.on(admin_cmd(pattern="gdrive ?(.*)", allow_sudo=True))
 async def gdriveupload(event):
