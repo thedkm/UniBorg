@@ -60,7 +60,7 @@ InitGDrive()
 def getProgressBarString(percentage):
     progress_bar_str = "[{0}{1}]\n".format(
             ''.join(["▰" for i in range(math.floor(percentage / 5))]),
-            ''.join(["▱" for i in range(20 - math.floor(percentage / 5))]))
+            ''.join(["▱" for i in range(18 - math.floor(percentage / 5))]))
     return progress_bar_str
 
 async def progressSpinner(drive_obj,banner,event):
