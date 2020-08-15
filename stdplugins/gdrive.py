@@ -4,6 +4,7 @@ GDrive Client Module for Userbot
 Usage:- .drivesearch search_query
         .drivedl drive_link
         .gdrive filePath/replyToMessage
+        .drivemeta drive_link
 
 Author:- Git: github.com/jaskaranSM | Tg:  https://t.me/Zero_cool7870
 """
@@ -29,11 +30,17 @@ import mimetypes
 import os
 import re
 
+space =  '    '
+branch = '│   '
+tee =    '├── '
+last =   '└── '
+
 
 db = mongo_client["test"]
 G_DRIVE_TOKEN_FILE = "token.pickle"
 driveDB = db.GDRIVE 
 SLEEP_TIME = 5
+G_DRIVE_DIR_MIME_TYPE = "application/vnd.google-apps.folder"
 
 def getAccessTokenDB():
     cursor = driveDB.find()
@@ -87,6 +94,38 @@ def getProgressString(drive_obj):
     progressStr += f"**Total:** `{humanbytes(drive_obj.totalBytes())}`\n"
     return progressStr
 
+async def postTextToDogBin(text):
+    async with aiohttp.ClientSession() as session:
+        async with session.post('https://nekobin.com/api/documents',json= {"content": text}) as response:
+            respJson = await response.json()
+            return f"https://nekobin.com/{respJson.get('result').get('key')}"
+
+
+class Folder:
+    def __init__(self,obj):
+        self.name = obj.get('name')
+        self.size = 0
+        self.mimeType = obj.get('mimeType')
+        self.id = obj.get('id')
+        self.obj = obj
+        self.children = []
+
+    def calculateSize(self,children):
+        for file in children:
+            if file.mimeType == G_DRIVE_DIR_MIME_TYPE:
+                self.calculateSize(file.children)
+            else:
+                self.size += int(file.size)
+
+
+class File:
+    def __init__(self,obj):
+        self.name = obj.get('name')
+        self.size = int(obj.get('size') if obj.get('size') else 0)
+        self.mimeType = obj.get('mimeType')
+        self.id = obj.get('id')
+        self.obj = obj
+
 class GDriveHelper:
     def __init__(self):
         self.service = None
@@ -97,13 +136,25 @@ class GDriveHelper:
         self.__G_DRIVE_BASE_DOWNLOAD_URL = "https://drive.google.com/uc?id={}&export=download"
         self.__G_DRIVE_DIR_BASE_DOWNLOAD_URL = "https://drive.google.com/drive/folders/{}"
         self.chunksize = 50*1024*1024
+        self.file_count = 0
         self.is_complete = False
         self.previous_msg_text = ""
+        self.size = 0
         self.transferred_bytes = 0
         self._eta = 0
         self.total_bytes = 0
         self.transfer_speed = 0
         self.start_time = time.time()
+        self.local_storage = []
+
+    def getLocalStorage(self):
+        return self.local_storage
+
+    def getFolderIndexById(self,f_id):
+        for i,j in enumerate(self.getLocalStorage()):
+            if j.id == f_id:
+                return i 
+        return None
 
     def speed(self):
         return self.transfer_speed
@@ -142,7 +193,8 @@ class GDriveHelper:
             if file.get("mimeType") == self.G_DRIVE_DIR_MIME_TYPE:
                 await self.getSizeDriveFolder(file.get('id'))
             else:
-                self.size += int(file.get('size'))
+                self.file_count += 1
+                self.size += int(file.get('size') if file.get('size') else 0)
 
     async def getSizeDrive(self,file_id):
         self.size = 0
@@ -151,7 +203,8 @@ class GDriveHelper:
             await self.getSizeDriveFolder(meta.get('id'))
             return self.size
         else:
-            return int(meta.get("size"))
+            self.file_count += 1
+            return int(meta.get("size") if meta.get('size') else 0)
 
     def onTransferComplete(self):
         print("onTransferComplete...")
@@ -369,6 +422,56 @@ class GDriveHelper:
                 file_writer.flush()
                 self.onProgressUpdate(len(chunk))
 
+    async def traverseFolder(self,folder_id):
+        files = await self.getFilesByParentId(folder_id)
+        for file in files:
+            if file.get('mimeType') == self.G_DRIVE_DIR_MIME_TYPE:
+                folder = Folder(file)
+                self.local_storage.append(folder)
+                await self.traverseFolder(file.get('id'))
+            else:
+                f = File(file)
+                index = self.getFolderIndexById(folder_id)
+                if index is None:
+                    self.local_storage.append(f)
+                else:
+                    self.local_storage[index].children.append(f)
+                self.size += int(file.get('size') if file.get('size') else 0)
+                self.file_count += 1
+
+    async def copyFile(self,file_id,dest_id):
+        body = {
+            'parents': [dest_id]
+        }
+        res = await self.service.files.copy(supportsAllDrives=True,fileId=file_id,body=body)
+        resJson = await res.json()
+        file_id = resJson.get('id')
+        if not Config.IS_TEAM_DRIVE:
+            await self.setPermissions(file_id) 
+        return file_id
+
+    async def copyFolderFromStorage(self,storage,parent_id):
+        for item in storage:
+            if item.mimeType == G_DRIVE_DIR_MIME_TYPE:
+                newDir = await self.createDirectory(item.name,parent_id)
+                await self.copyFolderFromStorage(item.children,newDir)
+            else:
+                await self.copyFile(item.id,parent_id)
+
+    def traverseStorage(self,storage):
+        for item in storage:
+            if item.mimeType == G_DRIVE_DIR_MIME_TYPE:
+                item.calculateSize(item.children)
+                self.traverseStorage(item.children)
+
+    def generateTree(self,storage, prefix=""):
+        pointers = [tee] * (len(storage) - 1) + [last]
+        for pointer, path in zip(pointers, storage):
+            yield f"{prefix}{pointer}{path.name} ({humanbytes(path.size)})"
+            if path.mimeType == self.G_DRIVE_DIR_MIME_TYPE: 
+                extension = branch if pointer == tee else space 
+                yield from self.generateTree(path.children, prefix=prefix+extension)
+
     async def getFilesByParentId(self,folder_id,name=None,limit=None):
         files = []
         page_token = None
@@ -411,6 +514,36 @@ async def drivesch(event):
     await event.edit(msg)
 
 
+@borg.on(admin_cmd(pattern="gcopy ?(.*)", allow_sudo=True))
+async def driveclone(event):
+    if event.fwd_from:
+        return
+    input_str = event.pattern_match.group(1).strip()
+    mone = await event.reply('Processing..')
+    drive = GDriveHelper()
+    await drive.authorize(event)
+    try:
+        fileId = drive.parseLink(input_str)
+        meta = await drive.getMetadata(fileId)
+    except Exception as e:
+        await mone.edit(f"BadLink: {e}")
+        return 
+    link = ""
+    if meta.get('mimeType') == G_DRIVE_DIR_MIME_TYPE:
+        await drive.traverseFolder(fileId)
+        newDir = await drive.createDirectory(meta.get('name'),Config.GDRIVE_FOLDER_ID)
+        await drive.copyFolderFromStorage(drive.getLocalStorage(),newDir)
+        link = drive.formatLink(newDir)
+        size = drive.size
+        fileCount = drive.file_count
+    else:
+        file_id = await drive.copyFile(meta.get('id'),Config.GDRIVE_FOLDER_ID)
+        link = drive.formatLink(file_id,folder=False)
+        size = int(meta.get('size') if meta.get('size') else 0)
+        fileCount = 1
+    await mone.edit(f"__GDrive Copy:__\n[{meta.get('name')}]({link})\n**Size:** `{humanbytes(size)}`\n**FileCount:** `{fileCount}`")
+    
+
 @borg.on(admin_cmd(pattern="drivedl ?(.*)", allow_sudo=True))
 async def gdrivedownload(event):
     if event.fwd_from:
@@ -446,15 +579,26 @@ async def gdrivemeta(event):
             await mone.edit(f"Bad Link: {e}")
     msg = ""
     meta = await drive.getMetadata(file_id)
+    tree = ""
     await mone.edit("Calculating Size please wait!")
-    size = await drive.getSizeDrive(file_id)
+    if meta.get('mimeType') == G_DRIVE_DIR_MIME_TYPE:
+        await drive.traverseFolder(file_id)
+        drive.traverseStorage(drive.getLocalStorage())
+        for line in drive.generateTree(drive.getLocalStorage()):
+            tree += line + "\n"
+        size = drive.size
+    else:
+        size = await drive.getSizeDrive(file_id)
     msg += f"**Name:** `{meta.get('name')}`\n"
     msg += f"**Size:** `{humanbytes(size)}`\n"
+    msg += f"**FileCount:** `{drive.file_count}`\n"
     msg += f"**MimeType:** `{meta.get('mimeType')}`\n"
     msg += f"**Trashed:** `{meta.get('trashed')}`\n"
     msg += f"**Description:** `{meta.get('description')}`\n"
     msg += f"**CreatedTime:** `{meta.get('createdTime')}`\n"
-    msg += f"**ModifiedTime:** `{meta.get('modifiedTime')}`"
+    msg += f"**ModifiedTime:** `{meta.get('modifiedTime')}\n`"
+    if tree != "":
+        msg += f"**Tree:** [here]({await postTextToDogBin(tree)})"
     await mone.edit(msg)
 
 
