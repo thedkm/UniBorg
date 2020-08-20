@@ -11,7 +11,6 @@ METOOSTR = [
     "`Haha yes`",
     "`Same pinch bsdk`",
 ]
-<<<<<<< HEAD
 ZALG_LIST = [[
     "?",
     " ?",
