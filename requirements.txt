@@ -12,4 +12,6 @@ anime-downloader
 pylast
 chatterbot-corpus
 gaggle
+tracemoepy
+pymongo
 -r ./requirements-stdborg.txt
