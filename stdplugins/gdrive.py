@@ -38,7 +38,7 @@ last =   '└── '
 
 db = mongo_client["test"]
 G_DRIVE_TOKEN_FILE = "token.pickle"
-driveDB = db.GDRIVE 
+driveDB = db.GDRIVE
 SLEEP_TIME = 5
 G_DRIVE_DIR_MIME_TYPE = "application/vnd.google-apps.folder"
 
@@ -72,7 +72,7 @@ def getProgressBarString(percentage):
 
 async def progressSpinner(drive_obj,banner,event):
     while not drive_obj.isComplete():
-        text = f"__{banner}__\n"     
+        text = f"__{banner}__\n"
         try:
             text += getProgressString(drive_obj)
         except Exception as e:
@@ -98,7 +98,7 @@ async def postTextToDogBin(text):
     async with aiohttp.ClientSession() as session:
         async with session.post('https://nekobin.com/api/documents',json= {"content": text}) as response:
             respJson = await response.json()
-            return f"https://nekobin.com/{respJson.get('result').get('key')}"
+            return f"https://nekobin.com/{respJson.get('result').get('key')}.py"
 
 
 class Folder:
@@ -107,15 +107,26 @@ class Folder:
         self.size = 0
         self.mimeType = obj.get('mimeType')
         self.id = obj.get('id')
-        self.obj = obj
         self.children = []
 
     def calculateSize(self,children):
         for file in children:
             if file.mimeType == G_DRIVE_DIR_MIME_TYPE:
+                file.size = 0
+                file.calculateSize(file.children)
                 self.calculateSize(file.children)
             else:
                 self.size += int(file.size)
+
+    def addChild(self,child):
+        self.children.append(child)
+
+    def addChildByFolderId(self,node,folder_id,child):
+        if folder_id == node.id:
+            return node.addChild(child)
+        for child_node in node.children:
+            if child_node.mimeType == G_DRIVE_DIR_MIME_TYPE:
+                self.addChildByFolderId(child_node,folder_id,child)
 
 
 class File:
@@ -145,16 +156,15 @@ class GDriveHelper:
         self.total_bytes = 0
         self.transfer_speed = 0
         self.start_time = time.time()
-        self.local_storage = []
+        self.root_node = None
+        self.SLEEP_TIME = 1
+        self.sem = asyncio.Semaphore(5)
 
-    def getLocalStorage(self):
-        return self.local_storage
+    def getRootNode(self):
+        return self.root_node
 
-    def getFolderIndexById(self,f_id):
-        for i,j in enumerate(self.getLocalStorage()):
-            if j.id == f_id:
-                return i 
-        return None
+    def setRootNode(self,node):
+        self.root_node = node
 
     def speed(self):
         return self.transfer_speed
@@ -303,14 +313,14 @@ class GDriveHelper:
                                      chunksize=self.chunksize)
         response = await self.service.files.create(supportsTeamDrives=True,
                                                    body=file_metadata, media_body=media_body)
-        
+
         uploadLocation = response.headers.get("location")
         file_id = ""
-        async with self.session.put(uploadLocation,data=self.fileSender(file_path)) as resp:
+        async with self.session.put(uploadLocation,data=self.fileSender(file_path),timeout=None) as resp:
             resJson = await resp.json()
         file_id = resJson.get("id")
         if not Config.IS_TEAM_DRIVE:
-            await self.setPermissions(file_id) 
+            await self.setPermissions(file_id)
         return file_id
 
     async def createDirectory(self,directory_name,parent_id=None):
@@ -322,10 +332,10 @@ class GDriveHelper:
             file_metadata["parents"] = [parent_id]
         response = await self.service.files.create(supportsTeamDrives=True,
                                                    body=file_metadata)
-        
+
         resJson = await response.json()
         if not Config.IS_TEAM_DRIVE:
-            await self.setPermissions(resJson.get('id')) 
+            await self.setPermissions(resJson.get('id'))
         return resJson.get("id")
 
     async def uploadFolder(self,input_directory,folder_id=None):
@@ -415,7 +425,7 @@ class GDriveHelper:
             "includeTeamDriveItems":"true"
         }
         headers = {"accept-encoding":'gzip;q=0,deflate,sdch','authorization': f'Bearer {access_token}'}
-        response = await self.session.get(uri,params=queryString,headers=headers)
+        response = await self.session.get(uri,params=queryString,headers=headers,timeout=None)
         with open(file_path,"wb") as file_writer:
             async for chunk, _ in response.content.iter_chunks():
                 file_writer.write(chunk)
@@ -423,21 +433,20 @@ class GDriveHelper:
                 self.onProgressUpdate(len(chunk))
 
     async def traverseFolder(self,folder_id):
+        reqs = []
         files = await self.getFilesByParentId(folder_id)
-        for file in files:
-            if file.get('mimeType') == self.G_DRIVE_DIR_MIME_TYPE:
-                folder = Folder(file)
-                self.local_storage.append(folder)
-                await self.traverseFolder(file.get('id'))
-            else:
-                f = File(file)
-                index = self.getFolderIndexById(folder_id)
-                if index is None:
-                    self.local_storage.append(f)
+        async with self.sem:
+            for file in files:
+                if file.get('mimeType') == self.G_DRIVE_DIR_MIME_TYPE:
+                    folder = Folder(file)
+                    self.root_node.addChildByFolderId(self.getRootNode(),folder_id,folder)
+                    reqs.append(self.traverseFolder(file.get('id')))
                 else:
-                    self.local_storage[index].children.append(f)
-                self.size += int(file.get('size') if file.get('size') else 0)
-                self.file_count += 1
+                    f = File(file)
+                    self.root_node.addChildByFolderId(self.getRootNode(),folder_id,f)
+                    self.size += int(file.get('size') if file.get('size') else 0)
+                    self.file_count += 1
+            if len(reqs) != 0: await asyncio.wait(reqs)
 
     async def copyFile(self,file_id,dest_id):
         body = {
@@ -447,8 +456,17 @@ class GDriveHelper:
         resJson = await res.json()
         file_id = resJson.get('id')
         if not Config.IS_TEAM_DRIVE:
-            await self.setPermissions(file_id) 
+            await self.setPermissions(file_id)
         return file_id
+
+    async def copy(self,meta):
+        self.setRootNode(Folder(meta))
+        await self.traverseFolder(meta.get('id'))
+        self.total_bytes = self.size
+        newDir = await self.createDirectory(meta.get('name'),"root")
+        await self.copyFolderFromStorage(self.getRootNode().children,newDir)
+        self.onTransferComplete()
+        return newDir
 
     async def copyFolderFromStorage(self,storage,parent_id):
         for item in storage:
@@ -457,6 +475,7 @@ class GDriveHelper:
                 await self.copyFolderFromStorage(item.children,newDir)
             else:
                 await self.copyFile(item.id,parent_id)
+                self.onProgressUpdate(item.size)
 
     def traverseStorage(self,storage):
         for item in storage:
@@ -468,9 +487,14 @@ class GDriveHelper:
         pointers = [tee] * (len(storage) - 1) + [last]
         for pointer, path in zip(pointers, storage):
             yield f"{prefix}{pointer}{path.name} ({humanbytes(path.size)})"
-            if path.mimeType == self.G_DRIVE_DIR_MIME_TYPE: 
-                extension = branch if pointer == tee else space 
+            if path.mimeType == self.G_DRIVE_DIR_MIME_TYPE:
+                extension = branch if pointer == tee else space
                 yield from self.generateTree(path.children, prefix=prefix+extension)
+
+    async def retry(self,coro):
+        logger.info(f"Sleeping for {self.SLEEP_TIME} and retrying")
+        await asyncio.sleep(self.SLEEP_TIME)
+        return await coro
 
     async def getFilesByParentId(self,folder_id,name=None,limit=None):
         files = []
@@ -480,14 +504,18 @@ class GDriveHelper:
         else:
             query =f"'{folder_id}' in parents"
         while True:
-            response = await self.service.files.list(supportsAllDrives=True,
+            resp = await self.service.files.list(supportsAllDrives=True,
                                                    includeTeamDriveItems=True,
                                                    q=query,
                                                    fields='nextPageToken, files(id, name, mimeType, size, iconLink)',
                                                    pageToken=page_token,
                                                    pageSize=500,
                                                    orderBy='folder,name,modifiedTime desc')
-            response = await response.json()
+            response = await resp.json()
+            err = response.get("error",None)
+            if err != None:
+                if "rate" in err.get("message").lower() or resp.status >= 500:
+                    return await self.retry(self.getFilesByParentId(folder_id,name,limit))
             for file in response.get('files', []):
                 if limit and len(files) == limit:
                     return files
@@ -527,22 +555,23 @@ async def driveclone(event):
         meta = await drive.getMetadata(fileId)
     except Exception as e:
         await mone.edit(f"BadLink: {e}")
-        return 
+        return
     link = ""
     if meta.get('mimeType') == G_DRIVE_DIR_MIME_TYPE:
-        await drive.traverseFolder(fileId)
-        newDir = await drive.createDirectory(meta.get('name'),Config.GDRIVE_FOLDER_ID)
-        await drive.copyFolderFromStorage(drive.getLocalStorage(),newDir)
-        link = drive.formatLink(newDir)
-        size = drive.size
+        task1 = drive.copy(meta)
+        task2 = progressSpinner(drive,"COPY PROGRESS",mone)
+        res = await asyncio.gather(*[task1,task2])
         fileCount = drive.file_count
+        size = drive.size
+        file_id = res[0]
+        link = drive.formatLink(file_id)
     else:
         file_id = await drive.copyFile(meta.get('id'),Config.GDRIVE_FOLDER_ID)
         link = drive.formatLink(file_id,folder=False)
         size = int(meta.get('size') if meta.get('size') else 0)
         fileCount = 1
     await mone.edit(f"__GDrive Copy:__\n[{meta.get('name')}]({link})\n**Size:** `{humanbytes(size)}`\n**FileCount:** `{fileCount}`")
-    
+
 
 @borg.on(admin_cmd(pattern="drivedl ?(.*)", allow_sudo=True))
 async def gdrivedownload(event):
@@ -582,9 +611,10 @@ async def gdrivemeta(event):
     tree = ""
     await mone.edit("Calculating Size please wait!")
     if meta.get('mimeType') == G_DRIVE_DIR_MIME_TYPE:
+        drive.setRootNode(Folder(meta))
         await drive.traverseFolder(file_id)
-        drive.traverseStorage(drive.getLocalStorage())
-        for line in drive.generateTree(drive.getLocalStorage()):
+        drive.getRootNode().calculateSize(drive.getRootNode().children)
+        for line in drive.generateTree(drive.getRootNode().children):
             tree += line + "\n"
         size = drive.size
     else:

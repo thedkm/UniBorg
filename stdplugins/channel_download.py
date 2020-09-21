@@ -4,7 +4,7 @@ usage: .geta channel_username [will  get all media from channel, tho there is li
 By: @Zero_cool7870
 """
 from telethon import errors
-from telethon.errors.rpcerrorlist import MessageNotModifiedError
+from telethon.errors.rpcerrorlist import MessageNotModifiedError, FileReferenceExpiredError
 import asyncio
 import os
 from uniborg.util import admin_cmd, humanbytes, time_formatter
@@ -97,6 +97,9 @@ class TelegramDownloader:
         messages = []
         async for m in borg.iter_messages(peer_id,limit=None,wait_time=2):
             if m.media:
+                current_file = self.getFileNameByMessage(m)
+                if self.checkExists(os.path.join(self.base_dir,current_file),m.file.size):
+                    continue
                 messages.append(m)
         return messages
 
@@ -130,21 +133,46 @@ class TelegramDownloader:
         self.base_dir = chat.title + "/"
         os.makedirs(self.base_dir,exist_ok=True)
 
-    async def downloadMessage(self,message):
+    def getFileNameByMessage(self,message):
         if message.file.name:
-            self.current_file_name = message.file.name
+            return message.file.name
         elif message.file.title:
-            self.current_file_name = message.file.title
+            return message.file.title
         else:
-            self.current_file_name = "file"
+            return "file"
+
+    def checkExists(self,file_path,size):
+        if not os.path.exists(file_path):
+            return False
+        if os.path.getsize(file_path) == size:
+            return True
+        os.remove(file_path)
+        return False
+
+    async def retryDl(self,message,timeout=1):
+        logger.info(f"[RetryDownload]: {message.id} | {message.chat_id} | {timeout}")
+        await asyncio.sleep(timeout)
+        self.transferred_bytes = self.transferred_bytes - self.last_downloaded
+        return await self.downloadMessage(message)
+
+    async def downloadMessage(self,message):
+        self.current_file_name = self.getFileNameByMessage(message)
         try:
             await borg.download_media(message,self.base_dir,progress_callback=self.onTransferProgress)
         except errors.FloodWaitError as e:
-            await asyncio.sleep(e.seconds)
+            return await self.retryDl(message,e.seconds)
+        except FileReferenceExpiredError as e:
+            logger.error(e)
+            message = await borg.get_messages(message.chat_id,ids=message.id)
+            return await self.retryDl(message)
         self.last_downloaded = 0
 
     async def startDownload(self):
-        chat = await borg.get_entity(self.peer_id)
+        try:
+            chat = await borg.get_entity(self.peer_id)
+        except Exception as e:
+            await self.onTransferComplete()
+            return await self.event.edit(f"Error: {str(e)}")
         self.onTransferStart(chat)
         messages = await self.getMessages(self.peer_id)
         self.total_bytes = self.getSizeByMessages(messages)
@@ -168,3 +196,6 @@ async def get_media(event):
     task1 = tgDownloader.startDownload()
     task2 = progressSpinner(tgDownloader,"DOWNLOAD PROGRESS",mone)
     await asyncio.gather(*[task1,task2])
+             
+             
+             
