@@ -463,7 +463,7 @@ class GDriveHelper:
         self.setRootNode(Folder(meta))
         await self.traverseFolder(meta.get('id'))
         self.total_bytes = self.size
-        newDir = await self.createDirectory(meta.get('name'),"root")
+        newDir = await self.createDirectory(meta.get('name'),Config.GDRIVE_FOLDER_ID)
         await self.copyFolderFromStorage(self.getRootNode().children,newDir)
         self.onTransferComplete()
         return newDir
