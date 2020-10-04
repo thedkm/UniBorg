@@ -265,10 +265,7 @@ def indentitems(items, indent, level):
             else:
                 res += indentstr + item + "\n"            
     return res
-    else:
-        logger.info(e_response)
-        logger.info(t_response)
-        return None
+	
 
 # these two functions are stolen from
 # https://github.com/udf/uniborg/blob/kate/stdplugins/info.py
@@ -345,4 +342,3 @@ def yaml_format(obj, indent=0, max_str_len=256, max_byte_len=64):
         return repr(obj)
 
     return ''.join(result)
-
