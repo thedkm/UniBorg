@@ -1,7 +1,6 @@
 aiofiles
 covid
 aiohttp
-aria2p
 beautifulsoup4==4.8.1
 cowpy
 cfscrape
@@ -58,4 +57,5 @@ covidcli==0.1.7
 psutil
 geopy
 unrar
+mediainfo
 youtube_search

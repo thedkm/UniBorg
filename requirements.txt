@@ -1,14 +1,11 @@
-
 pip==20.2
 dnspython
-lxml
 selenium
 aria2p
 ChatterBot
 spcli
 instaloader
 coffeehouse>=2.2.2
-anime-downloader
 pylast
 chatterbot-corpus
 gaggle

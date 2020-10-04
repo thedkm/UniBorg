@@ -10,12 +10,12 @@ import traceback
 import asyncio
 import sys
 import io
-from uniborg.util import admin_cmd
+from uniborg.util import admin_cmd, parse_pre, yaml_format
 
 
-@borg.on(admin_cmd("eval"))
+@borg.on(admin_cmd(pattern="eval"))
 async def _(event):
-    if event.fwd_from:
+    if event.fwd_from or event.via_bot_id:
         return
     await event.edit("Processing ...")
     cmd = event.text.split(" ", maxsplit=1)[1]
@@ -68,8 +68,10 @@ async def _(event):
 
 
 async def aexec(code, event):
+    p = lambda _x: print(yaml_format(_x))
+    reply = await event.get_reply_message()
     exec(
-        f'async def __aexec(event): ' +
+        f'async def __aexec(message, reply, client, p): ' +
         ''.join(f'\n {l}' for l in code.split('\n'))
     )
-    return await locals()['__aexec'](event)
+    return await locals()['__aexec'](event, reply, event.client, p)
