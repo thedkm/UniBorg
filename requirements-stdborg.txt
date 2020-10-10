@@ -58,4 +58,5 @@ psutil
 geopy
 unrar
 validators
+wand
 youtube_search
