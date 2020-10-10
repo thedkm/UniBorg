@@ -57,5 +57,5 @@ covidcli==0.1.7
 psutil
 geopy
 unrar
-mediainfo
+validators
 youtube_search
