@@ -114,12 +114,16 @@ class Config(object):
     #Heroku Stuff
     HEROKU_API_KEY =  os.environ.get("HEROKU_API_KEY ", None)
     HEROKU_APP_NAME = os.environ.get("HEROKU_APP_NAME ", None)
+	#
+    THUMB_IMG = os.environ.get(
+    "THUMB_IMG", "https://telegra.ph/file/c9377de879b53bc72b4ed.jpg"
+    )
     # Google Drive ()
     G_DRIVE_CLIENT_ID = os.environ.get("G_DRIVE_CLIENT_ID", None)
     G_DRIVE_CLIENT_SECRET = os.environ.get("G_DRIVE_CLIENT_SECRET", None)
     GDRIVE_FOLDER_ID = os.environ.get("GDRIVE_FOLDER_ID", "root")
     IS_TEAM_DRIVE = os.environ.get("IS_TEAM_DRIVE",False)
-
+    
 
 class Production(Config):
     LOGGER = False
