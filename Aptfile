@@ -1,6 +1,9 @@
 #mediainfo
 #mkvtoolnix
+https://mediaarea.net/download/binary/libzen0/0.4.38/libzen0v5_0.4.38-1_amd64.xUbuntu_18.04.deb
 https://mediaarea.net/download/binary/libmediainfo0/20.09/libmediainfo0v5_20.09-1_amd64.xUbuntu_18.04.deb
 https://mediaarea.net/download/binary/mediainfo/20.09/mediainfo_20.09-1_amd64.xUbuntu_18.04.deb
-http://ftp.cn.debian.org/debian/pool/main/m/mkvtoolnix/mkvtoolnix_51.0.0-1_amd64.deb
+wget -q -O - https://mkvtoolnix.download/gpg-pub-moritzbunkus.txt | sudo apt-key add -
+:repo:deb https://mkvtoolnix.download/ubuntu/ bionic main
+:repo:deb-src https://mkvtoolnix.download/ubuntu/ bionic main
 
