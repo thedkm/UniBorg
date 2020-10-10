@@ -15,7 +15,7 @@ from emoji import emojize
 
 from telethon import events as ed
 
-@borg.on(utils.admin_cmd(pattern="cinfo ?(.*)", allow_sudo=True))
+@borg.on(util.admin_cmd(pattern="cinfo ?(.*)", allow_sudo=True))
 async def info(event):
     if event.fwd_from:
          return
