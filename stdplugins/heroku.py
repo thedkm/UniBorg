@@ -8,7 +8,8 @@ import heroku3
 import requests
 
 from sample_config import Config
-from uniborg.util import admin_cmd , prettyjson
+from uniborg.util import admin_cmd
+from uniborg.prettyjson import prettyjson
 
 
 # =================
