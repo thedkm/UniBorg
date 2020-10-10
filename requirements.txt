@@ -10,6 +10,7 @@ pylast
 chatterbot-corpus
 gaggle
 tracemoepy
+heroku3
 spacy
 pymongo
 -r ./requirements-stdborg.txt
