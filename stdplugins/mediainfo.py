@@ -5,7 +5,7 @@
 
 import os
 
-from uniborg.utils import admin_cmd
+from uniborg.util import admin_cmd
 from userbot import runcmd
 from userbot.anime import post_to_telegraph
 
