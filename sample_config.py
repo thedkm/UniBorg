@@ -119,7 +119,9 @@ class Config(object):
     G_DRIVE_CLIENT_SECRET = os.environ.get("G_DRIVE_CLIENT_SECRET", None)
     GDRIVE_FOLDER_ID = os.environ.get("GDRIVE_FOLDER_ID", "root")
     IS_TEAM_DRIVE = os.environ.get("IS_TEAM_DRIVE",False)
-
+   # Heroku stuff
+    HEROKU_APP_NAME = os.environ.get("HEROKU_APP_NAME", None)
+    HEROKU_API_KEY = os.environ.get("HEROKU_API_KEY", None)
 
 class Production(Config):
     LOGGER = False
