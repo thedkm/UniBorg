@@ -41,7 +41,7 @@ async def file_data(reply):
     if reply.file.size:
         hmm += f"Size  :  {humanbytes(reply.file.size)}<br>"
     if reply.date:
-        hmm += f"Date  :  {json_format(reply.date)}<br>"
+        hmm += f"Date  :  {yaml_format(reply.date)}<br>"
     if reply.file.id:
         hmm += f"Id  :  {reply.file.id}<br>"
     if reply.file.ext:
