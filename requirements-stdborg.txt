@@ -60,3 +60,4 @@ unrar
 validators
 wand
 youtube_search
+html_telegraph_poster
