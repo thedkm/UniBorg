@@ -8,6 +8,7 @@ import os
 import time
 import datetime
 from telethon import events
+from telethon.tl.tlobject import TLObject
 from telethon.tl.functions.messages import GetPeerDialogsRequest
 
 # the secret configuration specific things
