@@ -3,7 +3,7 @@
 # Licensed under the Raphielscape Public License, Version 1.d (the "License");
 # you may not use this file except in compliance with the License.
 #
-""" Based code + improve from AdekMaulana and aidilaryanto """
+""" Based code + improve from AdekMaulana and aidilaryanto Syntax: reply to an image with .mmf or .mms` 'text on top' ; 'text on bottom' """
 
 import asyncio
 import os
@@ -33,7 +33,7 @@ async def mim(event):
         return
     await event.edit("`Downloading Media..`")
     if reply_message.photo:
-        dls_loc = await bot.download_media(
+        dls_loc = await borg.download_media(
             reply_message,
             "meme.png",
         )
@@ -41,14 +41,14 @@ async def mim(event):
         DocumentAttributeFilename(file_name="AnimatedSticker.tgs")
         in reply_message.media.document.attributes
     ):
-        await bot.download_media(
+        await borg.download_media(
             reply_message,
             "meme.tgs",
         )
         os.system("lottie_convert.py meme.tgs meme.png")
         dls_loc = "meme.png"
     elif reply_message.video:
-        video = await bot.download_media(
+        video = await borg.download_media(
             reply_message,
             "meme.mp4",
         )
@@ -56,7 +56,7 @@ async def mim(event):
         os.system("ffmpeg -i meme.mp4 -vframes 1 -an -s 480x360 -ss 1 meme.png")
         dls_loc = "meme.png"
     else:
-        dls_loc = await bot.download_media(
+        dls_loc = await borg.download_media(
             reply_message,
             "meme.png",
         )
@@ -199,7 +199,7 @@ async def mim(event):
         return
     await event.edit("`Downloading Media..`")
     if reply_message.photo:
-        dls_loc = await bot.download_media(
+        dls_loc = await borg.download_media(
             reply_message,
             "meme.png",
         )
@@ -207,14 +207,14 @@ async def mim(event):
         DocumentAttributeFilename(file_name="AnimatedSticker.tgs")
         in reply_message.media.document.attributes
     ):
-        await bot.download_media(
+        await borg.download_media(
             reply_message,
             "meme.tgs",
         )
         os.system("lottie_convert.py meme.tgs meme.png")
         dls_loc = "meme.png"
     elif reply_message.video:
-        video = await bot.download_media(
+        video = await borg.download_media(
             reply_message,
             "meme.mp4",
         )
@@ -222,7 +222,7 @@ async def mim(event):
         os.system("ffmpeg -i meme.mp4 -vframes 1 -an -s 480x360 -ss 1 meme.png")
         dls_loc = "meme.png"
     else:
-        dls_loc = await bot.download_media(
+        dls_loc = await borg.download_media(
             reply_message,
             "meme.png",
         )
