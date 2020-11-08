@@ -20,7 +20,7 @@ THUMB_IMAGE_PATH = "./thumb_image.jpg"
 TEMP_DOWNLOAD_DIRECTORY = Config.TMP_DOWNLOAD_DIRECTORY
 
 
-@bot.on(admin_cmd(pattern=r"mms(?: |$)(.*)"))
+@borg.on(admin_cmd(pattern=r"mms(?: |$)(.*)"))
 async def mim(event):
     if not event.reply_to_msg_id:
         await event.edit(
@@ -186,7 +186,7 @@ async def draw_meme_text(image_path, text):
     return webp_file
 
 
-@bot.on(admin_cmd(pattern=r"mmf(?: |$)(.*)"))
+@borg.on(admin_cmd(pattern=r"mmf(?: |$)(.*)"))
 async def mim(event):
     if not event.reply_to_msg_id:
         await event.edit(
