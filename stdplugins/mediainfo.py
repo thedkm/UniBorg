@@ -22,12 +22,12 @@ async def runcmd(cmd: str) -> Tuple[str, str, int, int]:
 
 async def post_to_telegraph(page_title, html_format_content):
     post_client = TelegraphPoster(use_api=True)
-    auth_name = "@UniBorg"
+    auth_name = "@mrdurden"
     post_client.create_api_token(auth_name)
     post_page = post_client.post(
         title=page_title,
         author=auth_name,
-        author_url="https://t.me/UniBorg",
+        author_url="https://t.me/mrxdurden",
         text=html_format_content
     )
     return post_page['url']
@@ -69,7 +69,7 @@ async def file_data(reply):
         pass
     return hmm
 
-@borg.on(admin_cmd(pattern="mediainfo", allow_sudo=True))
+@borg.on(admin_cmd(pattern="mi", allow_sudo=True))
 async def _(event):
     X_MEDIA = None
     reply = await event.get_reply_message()
